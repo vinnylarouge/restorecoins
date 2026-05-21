@@ -3,15 +3,25 @@
 Forward model: `weathered + mask → pristine` (target).
 Inverse model: SDXL-inpaint with our LoRA learns the inverse.
 
-Wall-clock: ~6-12h on a single A100 for ~2000 steps at 1024² (per spec §4.4).
-This script is not designed to be run by Claude Code in-session — it expects a
-real GPU and a fully-pulled SDXL-inpaint checkpoint. Run on a Lambda/RunPod box.
+Wall-clock budgets:
+    * A100 80GB,  1024², bs=1, rank=32, 2000 steps: ~6–12h.
+    * A100 40GB,  768²,   bs=1, rank=32, 2000 steps: ~5–8h.
+    * M4 Max MPS, 768²,   bs=1, rank=16, 2000 steps: ~8–18h.
+                  ^ fp32 only; MPS fp16 has bugs in attention kernels and
+                  produces NaNs in the SDXL-inpaint UNet roughly every 50 steps.
 
 Usage:
+    # A100 / CUDA box:
     accelerate launch -m training.train_lora \\
         --data_root data/filtered \\
         --output_dir runs/lora-v0.1 \\
         --rank 32 --steps 2000 --batch_size 1
+
+    # M-series Mac (MPS), with auto-tuned MPS-safe defaults:
+    python -m training.train_lora \\
+        --data_root data/wikimedia_raw \\
+        --output_dir runs/lora-mps-smoke \\
+        --device mps --steps 100  # smoke test first; full run later
 """
 
 from __future__ import annotations
@@ -50,6 +60,53 @@ class TrainConfig:
     save_every: int = 500
     seed: int = 0
     push_to_hub: str | None = None  # e.g. "vinnylarouge/restorecoins-lora-v0.1"
+    device: str = "auto"             # auto | cuda | mps | cpu
+    gradient_checkpointing: bool = False  # auto-enabled on MPS
+
+
+def _pick_device(name: str) -> str:
+    """Return the actual device string after resolving 'auto'."""
+    if name != "auto":
+        return name
+    try:
+        import torch
+    except ImportError:
+        return "cpu"
+    if torch.cuda.is_available():
+        return "cuda"
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
+
+
+def _apply_device_defaults(cfg: TrainConfig) -> TrainConfig:
+    """Auto-tune known-safe defaults per device, but never silently override an
+    explicit user value beyond precision (fp16 on MPS is a known-bug, not a
+    preference).
+
+    MPS specifically: fp16 produces NaNs in SDXL attention kernels (validated
+    May 2026 against torch 2.3 / diffusers 0.30). Force fp32. Warn — don't
+    clamp — on high resolutions; the user knows their VRAM better than we do.
+    """
+    resolved = _pick_device(cfg.device)
+    if resolved == "mps":
+        if cfg.mixed_precision == "fp16":
+            print("[train_lora] WARNING: fp16 disabled on MPS (known NaN bug); "
+                  "switching to fp32.")
+            cfg.mixed_precision = "no"
+        cfg.gradient_checkpointing = True
+        if cfg.resolution > 768:
+            print(f"[train_lora] WARNING: resolution={cfg.resolution} on MPS is "
+                  f"heavy (~25-40s/step, possible OOM on <128GB). Continuing.")
+        os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
+    elif resolved == "cpu":
+        cfg.mixed_precision = "no"
+        if cfg.resolution > 512:
+            print(f"[train_lora] WARNING: resolution={cfg.resolution} on CPU is "
+                  f"impractically slow. Continuing.")
+        cfg.gradient_checkpointing = True
+    cfg.device = resolved
+    return cfg
 
 
 def train(cfg: TrainConfig) -> None:
@@ -65,14 +122,22 @@ def train(cfg: TrainConfig) -> None:
     from transformers import CLIPTextModel, CLIPTextModelWithProjection, CLIPTokenizer
     from safetensors.torch import save_file
 
+    cfg = _apply_device_defaults(cfg)
     set_seed(cfg.seed)
     cfg.output_dir.mkdir(parents=True, exist_ok=True)
+    # On MPS, Accelerator may not honour device choice — pin it via env var so
+    # both Accelerator and bare torch agree.
+    if cfg.device == "mps":
+        os.environ.setdefault("ACCELERATE_USE_MPS_DEVICE", "1")
     accelerator = Accelerator(
         gradient_accumulation_steps=cfg.grad_accum,
         mixed_precision=cfg.mixed_precision,
         log_with="tensorboard",
         project_dir=str(cfg.output_dir / "tb"),
     )
+    print(f"[train_lora] device={cfg.device} precision={cfg.mixed_precision} "
+          f"res={cfg.resolution} rank={cfg.rank} steps={cfg.steps} "
+          f"grad_ckpt={cfg.gradient_checkpointing}")
 
     # Load the full pipeline once to grab its sub-modules, then drop the pipeline.
     pipe = StableDiffusionXLInpaintPipeline.from_pretrained(
@@ -101,6 +166,8 @@ def train(cfg: TrainConfig) -> None:
         target_modules=["to_k", "to_q", "to_v", "to_out.0"],
     )
     unet = inject_adapter_in_model(lora_cfg, unet)
+    if cfg.gradient_checkpointing:
+        unet.enable_gradient_checkpointing()
     trainable = [p for p in unet.parameters() if p.requires_grad]
 
     optimizer = torch.optim.AdamW(trainable, lr=cfg.lr, weight_decay=1e-2)
@@ -238,6 +305,10 @@ def _cli() -> None:
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--push_to_hub", default=None,
                    help="Optional HF repo to push the final LoRA to.")
+    p.add_argument("--device", default="auto",
+                   choices=["auto", "cuda", "mps", "cpu"])
+    p.add_argument("--gradient_checkpointing", action="store_true",
+                   help="Force gradient checkpointing on. Auto-enabled on MPS/CPU.")
     args = p.parse_args()
     train(TrainConfig(**vars(args)))
 

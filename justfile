@@ -51,6 +51,18 @@ fixtures n="20":
 train-lora data="data/filtered":
     accelerate launch -m training.train_lora --data_root {{data}} --output_dir runs/lora-latest
 
+# MPS-friendly: 100-step smoke test on M-series Mac to verify the loop works.
+train-lora-mps-smoke data="data/wikimedia_raw":
+    .venv/bin/python -m training.train_lora --device mps --steps 100 --rank 16 \
+        --resolution 512 --grad_accum 1 --save_every 100 \
+        --data_root {{data}} --output_dir runs/lora-mps-smoke
+
+# Full MPS training run — multi-hour, only after the smoke passes.
+train-lora-mps data="data/wikimedia_raw":
+    .venv/bin/python -m training.train_lora --device mps --steps 2000 --rank 16 \
+        --resolution 768 --grad_accum 4 --save_every 500 \
+        --data_root {{data}} --output_dir runs/lora-mps-latest
+
 train-mask data="data/filtered":
     .venv/bin/python -m training.train_mask_proposer --data_root {{data}} --output_dir runs/mask-latest
 

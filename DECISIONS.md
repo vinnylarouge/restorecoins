@@ -33,6 +33,17 @@ Architectural and operational decisions, both resolved and open. Spec §10 lists
   2. Real scraping deferred to a network with route to `www-img.fitzmuseum.cam.ac.uk` (Cambridge eduroam, Oxford VPN, or a cloud box).
   3. As a backup, add a British Museum scraper from a Cloudflare-allowed origin (e.g. a HuggingFace Space build) — tracked in BACKLOG.md.
 
+### 2026-05-21 — Wikimedia Commons as the Phase A primary data source
+- **Trigger:** Tested Oxford VPN — routes Oxford traffic but not Cambridge `.cam.ac.uk`, so the OCRE→Fitzwilliam path stays blocked. Wikimedia Commons (`upload.wikimedia.org`) is reachable from every network we've tried.
+- **Decision:** Add `training/scrape_wikimedia.py` as the primary scrape source for Phase A. Walks the MediaWiki `categorymembers` API under "Roman coins by emperor" with depth-2 descent.
+- **Trade-off:** Wikimedia type metadata is much weaker than OCRE (volunteer curation; no RIC numbers attached). For Phase A's LoRA the images themselves are what matters; for the Phase B type retriever we'll need OCRE-typed data and the Cambridge-routing problem must be solved.
+- **Status of OCRE scraper:** kept as-is. When a Cambridge-routable network is available, `python -m training.scrape_ocre --limit 20000` is the one command to run.
+
+### 2026-05-21 — MPS training defaults
+- **Choice:** On Apple Silicon (`--device mps`), force fp32 (MPS fp16 has known NaN bugs in SDXL attention kernels), enable gradient checkpointing, and set `PYTORCH_ENABLE_MPS_FALLBACK=1` for unimplemented ops.
+- **Resolution:** Auto-tuning does *not* clamp `--resolution` on MPS — only warns. This honours explicit user intent (e.g. the spec calls for 1024²) at the cost of possible OOM on smaller Apple Silicon.
+- **First M4 Max training run:** 1024², rank-32 LoRA, 2000 steps, fp32, batch=1, grad_accum=4, on a 27-image Wikimedia-Roman-coins corpus. Expected wall-clock ~16-24h. The 27-image corpus is small (spec aims at ~2000 pairs); the resulting LoRA will overfit and serve mainly as a proof of pipeline. Re-train with the full Wikimedia (or OCRE) corpus once the scrape is unblocked.
+
 ## Open (spec §10)
 
 ### Heberden contact

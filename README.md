@@ -3,6 +3,8 @@
 A web tool that takes a photo of a weathered ancient coin and returns plausible restorations of how the coin looked closer to its minted appearance. Primary purpose: **aid identification** of weathered specimens against known type catalogues (RIC, RPC, SNG). Secondary: visualisation.
 
 > **Status:** Phase A. See [PROJECT_SPEC.md](PROJECT_SPEC.md) for the binding spec, [BACKLOG.md](BACKLOG.md) for deferred items, and [DECISIONS.md](DECISIONS.md) for resolved/open architectural choices.
+>
+> **Code:** https://github.com/vinnylarouge/restorecoins. First LoRA training run in progress on Apple Silicon (M4 Max via MPS); subsequent runs need a CUDA box for reasonable wall-clock.
 
 ## What this is
 

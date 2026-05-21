@@ -5,6 +5,9 @@ data/
 *.ckpt
 *.bin
 
+# --- Training runs (checkpoints, tensorboard, logs). ---
+runs/
+
 # --- Python ---
 __pycache__/
 *.py[cod]
