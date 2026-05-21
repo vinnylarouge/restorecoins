@@ -277,14 +277,24 @@ def _build_time_ids(resolution: int, bsz: int, device) -> torch.Tensor:
 
 
 def _save_lora(unet, out_dir: Path) -> None:
+    """Save in the diffusers-standard layout so `pipe.load_lora_weights(dir)` works.
+
+    Diffusers' loader looks for `pytorch_lora_weights.safetensors` (or `.bin`).
+    Keys must be prefixed with the module name diffusers expects — for the UNet
+    that's `unet.` per the standard convention. PEFT's default keys don't
+    include this prefix, so we add it on save.
+    """
     from peft import get_peft_model_state_dict
     from safetensors.torch import save_file
 
     out_dir.mkdir(parents=True, exist_ok=True)
     state = get_peft_model_state_dict(unet)
-    save_file(state, str(out_dir / "lora.safetensors"))
+    # Diffusers expects keys prefixed with `unet.` for UNet LoRAs.
+    prefixed = {f"unet.{k}": v for k, v in state.items()}
+    save_file(prefixed, str(out_dir / "pytorch_lora_weights.safetensors"))
     (out_dir / "metadata.json").write_text(
-        '{"base_model": "%s", "format": "diffusers-lora"}' % SDXL_INPAINT_ID
+        '{"base_model": "%s", "format": "diffusers-lora", "prefix": "unet."}'
+        % SDXL_INPAINT_ID
     )
 
 
