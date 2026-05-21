@@ -1,0 +1,31 @@
+# Training pipeline (LoRA, mask proposer, eval).
+# Pinned to ranges known to work on Python 3.12.
+
+# Core array / image ops (used by synthetic_weathering, scraper, training).
+numpy>=1.26,<3
+scipy>=1.11
+Pillow>=10.2
+requests>=2.31
+
+# Diffusion + PEFT for LoRA training (M4).
+torch>=2.3
+torchvision>=0.18
+diffusers>=0.30
+transformers>=4.43
+peft>=0.11
+accelerate>=0.32
+safetensors>=0.4
+huggingface_hub>=0.24
+datasets>=2.20
+
+# Mask proposer UNet (M6).
+einops>=0.7
+
+# Eval (M5/M9): PSNR/SSIM/LPIPS + CLIP retrieval as the classification proxy.
+scikit-image>=0.22
+lpips>=0.1.4
+open-clip-torch>=2.24
+
+# Dev / testing.
+pytest>=8.0
+tqdm>=4.66

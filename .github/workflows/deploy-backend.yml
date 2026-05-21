@@ -1,0 +1,65 @@
+name: deploy-backend
+
+# Mirrors `backend/` into the HuggingFace Space repo. The Space is a separate
+# git repo; we push to it via the `huggingface_hub` upload API (simpler than
+# git-over-https with a token, and avoids LFS quirks).
+#
+# Required repo secrets:
+#   HF_TOKEN          — a write-scoped HuggingFace access token
+# Required repo variables:
+#   HF_SPACE_OWNER    — e.g. "vinnylarouge"
+#   HF_SPACE_NAME     — e.g. "restorecoins-backend"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "training/synthetic_weathering.py"  # mocked degradations used in eval
+      - "training/datasets.py"
+      - ".github/workflows/deploy-backend.yml"
+  workflow_dispatch:
+
+jobs:
+  push-to-space:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install --upgrade huggingface_hub
+      - name: Push backend to HF Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python <<'PY'
+          import os
+          from huggingface_hub import HfApi
+          api = HfApi(token=os.environ["HF_TOKEN"])
+          repo_id = f"{os.environ['HF_SPACE_OWNER']}/{os.environ['HF_SPACE_NAME']}"
+          # Create the Space if it doesn't exist yet (idempotent).
+          api.create_repo(repo_id=repo_id, repo_type="space",
+                          space_sdk="docker", exist_ok=True)
+          # Upload the backend dir as the Space root, plus the training utilities
+          # that the backend pipeline imports.
+          api.upload_folder(
+              folder_path="backend",
+              repo_id=repo_id,
+              repo_type="space",
+              commit_message=f"deploy {os.environ.get('GITHUB_SHA','local')[:7]}",
+          )
+          api.upload_folder(
+              folder_path="training",
+              path_in_repo="training",
+              repo_id=repo_id,
+              repo_type="space",
+              allow_patterns=["synthetic_weathering.py", "datasets.py",
+                              "train_mask_proposer.py", "__init__.py"],
+          )
+          print(f"Pushed to https://huggingface.co/spaces/{repo_id}")
+          PY
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE_OWNER: ${{ vars.HF_SPACE_OWNER }}
+          HF_SPACE_NAME: ${{ vars.HF_SPACE_NAME }}

@@ -1,0 +1,42 @@
+# --- Data: per spec §7, never commit. ---
+data/
+*.pt
+*.safetensors
+*.ckpt
+*.bin
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# --- Node / frontend build ---
+node_modules/
+frontend/dist/
+frontend/.vite/
+*.tsbuildinfo
+
+# --- HF caches if accidentally placed in-tree ---
+.cache/
+hf_cache/
+diffusers_cache/
+
+# --- Editors / OS / tooling ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+.playwright-mcp/
+
+# --- Secrets ---
+.env
+.env.*
+!.env.example
+.hf_token

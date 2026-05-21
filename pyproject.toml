@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "restorecoins"
+version = "0.1.0"
+description = "Numismatic Deweatherer — see PROJECT_SPEC.md."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.12"
+
+[tool.setuptools.packages.find]
+include = ["backend*", "training*"]
+
+[tool.pytest.ini_options]
+# Without this, pytest can drift to a parent dir's config when restorecoins is
+# nested inside another git repo (e.g., a dotfiles checkout).
+testpaths = ["training/tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501"]  # long lines are usually intentional in docstrings/prompts

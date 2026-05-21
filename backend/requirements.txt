@@ -1,0 +1,11 @@
+# FastAPI + image deps. Deliberately lean: no torch unless real mode is on.
+# A separate `requirements-real.txt` carries the diffusion stack so a CPU-only
+# Space (or local dev) doesn't pull 5GB of CUDA wheels it'll never use.
+
+fastapi>=0.110
+uvicorn[standard]>=0.27
+pydantic>=2.6
+Pillow>=10.2
+numpy>=1.26,<3
+scipy>=1.11
+python-multipart>=0.0.7

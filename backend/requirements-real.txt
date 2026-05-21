@@ -1,0 +1,16 @@
+# Real-mode (GPU) inference deps. Layered on top of requirements.txt so that
+# mock-mode CI / local dev / HF Space cold-start can skip the heavy wheels.
+
+-r requirements.txt
+
+torch>=2.3
+diffusers>=0.30
+transformers>=4.43
+peft>=0.11
+accelerate>=0.32
+safetensors>=0.4
+huggingface_hub>=0.24
+# OpenCV is optional — the Canny fallback in pipeline.py uses PIL FIND_EDGES if
+# OpenCV isn't present. Including it because the OpenCV Canny is much cleaner
+# and the cn_scale=0.6 default assumes that quality of edges.
+opencv-python-headless>=4.9

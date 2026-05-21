@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background:
+      radial-gradient(circle at 15% 0%, rgba(58,90,58,0.05), transparent 40%),
+      radial-gradient(circle at 85% 100%, rgba(138,106,58,0.05), transparent 40%),
+      #f4ede0;
+  }
+  h1, h2, h3 { @apply font-serif; }
+  /* The hypothesis hatching pattern — used as a CSS variable so any element can
+     opt in via `bg-[image:var(--hatch-bg)]`. Spec §2(3): a restoration must
+     never be visually mistakable for a photograph. */
+  :root {
+    --hatch-bg: repeating-linear-gradient(
+      45deg,
+      transparent 0,
+      transparent 6px,
+      rgba(28,26,20,0.10) 6px,
+      rgba(28,26,20,0.10) 7px
+    );
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center gap-2 rounded border border-ink/15
+           bg-parchment px-3 py-1.5 text-sm shadow-sm
+           hover:border-ink/30 hover:bg-ink/5 transition;
+  }
+  .btn-primary {
+    @apply bg-patina text-parchment border-patina hover:bg-ink hover:border-ink;
+  }
+  .panel {
+    @apply rounded border border-ink/10 bg-white/60 backdrop-blur p-4;
+  }
+}
