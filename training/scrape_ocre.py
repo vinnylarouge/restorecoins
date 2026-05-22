@@ -71,20 +71,22 @@ SELECT DISTINCT ?coin ?type ?label ?obverse_thumb ?reverse_thumb
        ?obverse_full ?reverse_full
 WHERE {
     ?coin a nmo:NumismaticObject ;
-          nmo:hasTypeSeriesItem ?type .
+          nmo:hasTypeSeriesItem ?type ;
+          nmo:hasObverse ?obv .
+    ?obv foaf:depiction ?obverse_full .
     FILTER(STRSTARTS(STR(?type), "http://numismatics.org/ocre/id/"))
-    OPTIONAL {
-        ?coin nmo:hasObverse ?obv .
-        OPTIONAL { ?obv foaf:depiction ?obverse_full }
-        OPTIONAL { ?obv foaf:thumbnail ?obverse_thumb }
-    }
+    # Skip image hosts we know are unreachable from this network — see
+    # DECISIONS.md 2026-05-21. ANS-hosted images (numismatics.org/...) and
+    # Met images are reachable.
+    FILTER(!CONTAINS(STR(?obverse_full), "fitzmuseum"))
+    FILTER(!CONTAINS(STR(?obverse_full), "localhost"))
+    OPTIONAL { ?obv foaf:thumbnail ?obverse_thumb }
     OPTIONAL {
         ?coin nmo:hasReverse ?rev .
         OPTIONAL { ?rev foaf:depiction ?reverse_full }
         OPTIONAL { ?rev foaf:thumbnail ?reverse_thumb }
     }
     OPTIONAL { ?type skos:prefLabel ?label . FILTER(LANG(?label) = "en") }
-    FILTER(BOUND(?obverse_full) || BOUND(?obverse_thumb))
 }
 LIMIT %d OFFSET %d
 """

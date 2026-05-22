@@ -52,6 +52,26 @@ export function AboutPage({
         </p>
       </section>
 
+      <section className="space-y-2 border-l-4 border-patina pl-4 bg-patina/5 py-3 -mx-4">
+        <h2 className="text-lg">Feedback wanted</h2>
+        <p className="text-ink/80 text-sm">
+          This tool is in Phase A and the only metric I trust is whether numismatists find it useful. If you've tried it on a real specimen, please tell me:
+        </p>
+        <ul className="list-disc pl-5 space-y-1 text-ink/80 text-sm">
+          <li>Did the restorations help, hinder, or have no effect on your identification?</li>
+          <li>Were the candidates visibly different from each other, or essentially the same image?</li>
+          <li>Did anything in the output look obviously wrong to a trained eye (anachronistic iconography, wrong relief depth, impossible legend strokes)?</li>
+          <li>What would make this tool more useful for your work?</li>
+        </ul>
+        <p className="text-ink/80 text-sm">
+          Email: <a className="underline" href="mailto:vincentwangsemailaddress@gmail.com?subject=restorecoins%20feedback">vincentwangsemailaddress@gmail.com</a>
+          {" · "}
+          GitHub issue: <a className="underline" href="https://github.com/vinnylarouge/restorecoins/issues/new">file one</a>
+          {" · "}
+          Even a one-line reply counts as the success metric for Phase A.
+        </p>
+      </section>
+
       <section className="space-y-2">
         <h2 className="text-lg">Version</h2>
         {version ? (
