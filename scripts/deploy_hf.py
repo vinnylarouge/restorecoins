@@ -113,10 +113,17 @@ def main() -> None:
     if args.skip_space:
         print(f"[deploy_hf] skipping space step (use --skip_space=false to enable)")
     else:
+        # Mask proposer is small enough (~12MB) to bundle directly in the Space
+        # rather than mint a separate HF model repo for it.
+        mask_ckpt = REPO_ROOT / "runs/mask-proposer-v0.1/mask_proposer.pt"
+        mask_in_space = "checkpoints/mask_proposer.pt"
+
         if args.dry_run:
             print(f"[dry_run] would: create_repo {space_repo} (space, docker)")
             print(f"[dry_run] would: upload_folder backend/ + training/ -> {space_repo}")
+            print(f"[dry_run] would: upload {mask_ckpt} -> {space_repo}:{mask_in_space}")
             print(f"[dry_run] would: set space secrets: RESTORECOINS_LORA_ID={lora_repo}")
+            print(f"[dry_run] would: set RESTORECOINS_MASK_PROPOSER_PATH={mask_in_space}")
         else:
             api.create_repo(repo_id=space_repo, repo_type="space",
                             space_sdk="docker", exist_ok=True, private=False)
@@ -128,7 +135,15 @@ def main() -> None:
                               allow_patterns=["synthetic_weathering.py", "datasets.py",
                                               "train_mask_proposer.py", "__init__.py"],
                               commit_message=f"training utils@{_git_short_sha()}")
-            # Variables (visible) vs secrets (hidden). Model IDs are not secret.
+            if mask_ckpt.exists():
+                api.upload_file(path_or_fileobj=str(mask_ckpt),
+                                path_in_repo=mask_in_space,
+                                repo_id=space_repo, repo_type="space",
+                                commit_message="bundle mask proposer checkpoint")
+                api.add_space_variable(repo_id=space_repo,
+                                       key="RESTORECOINS_MASK_PROPOSER_PATH",
+                                       value=f"/app/{mask_in_space}")
+                print(f"[deploy_hf] bundled mask proposer ({mask_ckpt.stat().st_size/1e6:.1f}MB)")
             api.add_space_variable(repo_id=space_repo, key="RESTORECOINS_MODE", value="real")
             api.add_space_variable(repo_id=space_repo, key="RESTORECOINS_LORA_ID", value=lora_repo)
             print(f"[deploy_hf] Space pushed: https://huggingface.co/spaces/{space_repo}")
