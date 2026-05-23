@@ -289,17 +289,26 @@ def restore(
 
 
 def propose_mask(image_b64: str) -> str:
-    """Phase A: a placeholder mask proposer.
+    """Suggest a weathered-region probability map.
 
-    Returns a base64 PNG grayscale where pixel intensity ≈ P(weathered). Until
-    the M6 UNet is trained and shipped, we use a hand-rolled heuristic: low
-    contrast + low saturation regions are more likely weathered. This is a
-    deliberately stupid baseline so the frontend has something to render.
+    If a trained UNet checkpoint is available (via RESTORECOINS_MASK_PROPOSER_PATH),
+    use that. Otherwise fall back to a hand-rolled heuristic. The heuristic is
+    deliberately stupid so the contrast against a trained proposer is obvious.
     """
     image, _ = b64_to_pil(image_b64, "RGB")
+    # Try the trained proposer first.
+    try:
+        from backend import mask_proposer as mp
+        prob = mp.propose(image)
+        out = (np.clip(prob, 0, 1) * 255).astype(np.uint8)
+        return pil_to_b64(Image.fromarray(out, mode="L"))
+    except (FileNotFoundError, ImportError):
+        pass
+
+    # Heuristic fallback: low contrast + low saturation regions are more
+    # likely weathered. Bad baseline but always available.
     arr = np.asarray(image).astype(np.float32) / 255.0
     luma = 0.299 * arr[..., 0] + 0.587 * arr[..., 1] + 0.114 * arr[..., 2]
-    # Local contrast = |pixel - local mean|, on a small window.
     from scipy.ndimage import uniform_filter
     local_mean = uniform_filter(luma, size=11)
     contrast = np.abs(luma - local_mean)

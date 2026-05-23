@@ -39,7 +39,9 @@ def _ensure_loaded() -> MaskProposer | None:
         else "cpu"
     )
     logger.info("Loading mask proposer from %s onto %s", _CHECKPOINT_PATH, _DEVICE)
-    ckpt = torch.load(_CHECKPOINT_PATH, map_location=_DEVICE)
+    # weights_only=False because we save a dict that includes the training
+    # config (with PosixPath) alongside state_dict. We trust our own checkpoint.
+    ckpt = torch.load(_CHECKPOINT_PATH, map_location=_DEVICE, weights_only=False)
     model = MaskProposer().to(_DEVICE).eval()
     model.load_state_dict(ckpt["state_dict"])
     _MODEL = model
